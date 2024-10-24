@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Upload XML Files{% endblock %}
+
+{% block content %}
+<h1>Upload Files on Left and Right</h1>
+<div class="upload-container">
+    <!-- 左側上傳 -->
+    <div class="left-upload">
+        <h2>Upload</h2>
+        <form id="leftUploadForm">
+            <label for="file_left">Choose an XML file:</label>
+            <input type="file" id="file_left" name="file_left" required>
+            <br><br>
+
+            <!-- 新增一個文本輸入框讓用戶輸入要查找的字 -->
+            <label for="search_word_left">Enter a word to highlight:</label>
+            <input type="text" id="search_word_left" name="search_word_left">
+            <br><br>
+
+            <form method="POST" action="/">
+                <label for="selected_left_file">選擇一個檔案：</label>
+                <select name="selected_left_file" id="selected_left_file" required>
+                    {% for file in files %}
+                    <option value="{{ file }}">{{ file }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+
+
+            <button type="button" onclick="uploadLeftFile()">Analysis</button>
+        </form>
+        <div id="left-result" class="result-block"></div> <!-- 顯示左側分析結果 -->
+        <br><br>
+        <!-- 自定義 Toggle Button -->
+        <label class="switch">
+            <input type="checkbox" id="use_porter_left" name="use_porter_left">
+            <span class="slider"></span>
+        </label>
+        <label for="use_porter_left">Use Porter Algorithm</label>
+
+        <div id="left-plot" class="plot-block"></div> <!-- 顯示左側 Zipf 圖像 -->
+        <div id="left-zipf-plot" class="plot-block"></div> <!-- 顯示左側 Zipf 圖像 -->
+    </div>
+
+    <!-- 右側上傳 -->
+    <div class="right-upload">
+        <h2>Upload</h2>
+        <form id="rightUploadForm">
+            <label for="file_right">Choose an XML file:</label>
+            <input type="file" id="file_right" name="file_right" required>
+            <br><br>
+
+            <!-- 新增一個文本輸入框讓用戶輸入要查找的字 -->
+            <label for="search_word_right">Enter a word to highlight:</label>
+            <input type="text" id="search_word_right" name="search_word_right">
+            <br><br>
+
+            <button type="button" onclick="uploadRightFile()">Analysis</button>
+        </form>
+        <div id="right-result" class="result-block"></div> <!-- 顯示右側分析結果 -->
+        <br><br>
+        <!-- 自定義 Toggle Button -->
+        <label class="switch">
+            <input type="checkbox" id="use_porter_right" name="use_porter_right">
+            <span class="slider"></span>
+        </label>
+        <label for="use_porter_right">Use Porter Algorithm</label>
+        <div id="right-plot" class="plot-block"></div> <!-- 顯示右側 Zipf 圖像 -->
+        <div id="right-zipf-plot" class="plot-block"></div> <!-- 顯示右側 Zipf 圖像 -->
+    </div>
+</div>
+
+<script>
+    // 左側 AJAX 上傳
+    function uploadLeftFile() {
+
+        // 確認已選擇文件
+        // var fileInput = document.getElementById('file_left');
+        // if (fileInput.files.length === 0) {
+        //     alert("Please select a file before uploading.");
+        //     return;
+        // }
+
+        var form = document.getElementById('leftUploadForm');
+        var formData = new FormData(form);
+
+
+        // 檢查是否選中了 Porter 演算法選項
+        var usePorter = document.getElementById('use_porter_left').checked;
+        formData.append('use_porter', usePorter);  // 添加這個選項到 formData 中
+
+        // 獲取用戶輸入的要查找的字
+        var searchWord = document.getElementById('search_word_left').value;
+        formData.append('search_word', searchWord);  // 添加搜索字詞到 formData 中
+
+
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload_left', true);
+        xhr.onload = function () {
+            // 上传完成后重新启用文件输入框
+
+            if (xhr.status === 200) {
+                var response = JSON.parse(xhr.responseText);
+                console.log(response);  // 檢查響應數據
+                if (response.message) {
+                    var resultDiv = document.getElementById('left-result');
+                    resultDiv.innerHTML = "<h3>Analysis Result:</h3>";
+                    var analysisContent = document.createElement('pre');
+
+                    resultDiv.innerHTML = response.analysis;
+
+                    analysisContent.textContent += `Character Count (including spaces): ${response.char_count_including_spaces}\n`;
+                    analysisContent.textContent += `Character Count (excluding spaces): ${response.char_count_excluding_spaces}\n`;
+                    analysisContent.textContent += `Word Count: ${response.word_count}\n`;
+                    analysisContent.textContent += `Sentence Count: ${response.sentence_count}\n`;
+                    analysisContent.textContent += `Non-ASCII Character Count: ${response.non_ascii_char_count}\n`;
+                    analysisContent.textContent += `Non-ASCII Word Count: ${response.non_ascii_word_count}\n`;
+                    resultDiv.appendChild(analysisContent);
+
+                    // 插入 Zipf 分布圖到左側區域
+                    var plotDiv = document.getElementById('left-plot');
+                    plotDiv.innerHTML = "";  // 清空之前的內容
+
+                    // 動態加載 Zipf 圖片到這個區域
+                    var img = document.createElement('img');
+                    img.src = response.token_plot_url;  // 使用返回的圖像 URL
+                    img.alt = 'Token Distribution';
+                    plotDiv.appendChild(img);
+
+
+                    // 插入 Zipf 分布圖到左側區域
+                    var plotDiv = document.getElementById('left-zipf-plot');
+                    plotDiv.innerHTML = "";  // 清空之前的內容
+
+                    // 動態加載 Zipf 圖片到這個區域
+                    var img2 = document.createElement('img');
+                    img2.src = response.zipf_plot_url;  // 使用返回的圖像 URL
+                    img2.alt = 'Zipf Distribution';
+                    plotDiv.appendChild(img2);
+                }
+            } else {
+                var response = JSON.parse(xhr.responseText);
+                document.getElementById('left-result').innerHTML = "<p style='color: red;'>" + response.error + "</p>";
+            }
+        };
+        xhr.send(formData);
+    }
+
+    // 當復選框變化時，重新上傳文件並應用 Porter 演算法
+    document.getElementById('use_porter_left').addEventListener('change', function () {
+        // var fileInput = document.getElementById('file_file');
+
+        // if (fileInput.files.length === 0) {
+        //     return;
+        // }
+
+        // 文件存在，調用上傳函數
+        uploadLeftFile();
+    });
+
+
+    // 右側 AJAX 上傳
+    function uploadRightFile() {
+        var fileInput = document.getElementById('file_right');
+        if (fileInput.files.length === 0) {
+            alert("Please select a file before uploading.");
+            return;
+        }
+
+        var form = document.getElementById('rightUploadForm');
+        var formData = new FormData(form);
+
+
+
+
+        // 檢查是否選中了 Porter 演算法選項
+        var usePorter = document.getElementById('use_porter_right').checked;
+        formData.append('use_porter', usePorter);  // 添加這個選項到 formData 中
+
+        // 獲取用戶輸入的要查找的字
+        var searchWord = document.getElementById('search_word_right').value;
+        formData.append('search_word', searchWord);  // 添加搜索字詞到 formData 中
+
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload_right', true);
+        xhr.onload = function () {
+
+
+            if (xhr.status === 200) {
+                var response = JSON.parse(xhr.responseText);
+                if (response.message) {
+                    var resultDiv = document.getElementById('right-result');
+                    resultDiv.innerHTML = "<h3>Analysis Result:</h3>";
+                    var analysisContent = document.createElement('pre');
+                    resultDiv.innerHTML = response.analysis;
+
+                    analysisContent.textContent += `Character Count (including spaces): ${response.char_count_including_spaces}\n`;
+                    analysisContent.textContent += `Character Count (excluding spaces): ${response.char_count_excluding_spaces}\n`;
+                    analysisContent.textContent += `Word Count: ${response.word_count}\n`;
+                    analysisContent.textContent += `Sentence Count: ${response.sentence_count}\n`;
+                    analysisContent.textContent += `Non-ASCII Character Count: ${response.non_ascii_char_count}\n`;
+                    analysisContent.textContent += `Non-ASCII Word Count: ${response.non_ascii_word_count}\n`;
+                    resultDiv.appendChild(analysisContent);
+
+                    // 插入 Zipf 分布圖到左側區域
+                    var plotDiv = document.getElementById('right-plot');
+                    plotDiv.innerHTML = "";  // 清空之前的內容
+
+                    // 動態加載 Zipf 圖片到這個區域
+                    var img = document.createElement('img');
+                    img.src = response.token_plot_url;  // 使用返回的圖像 URL
+                    img.alt = 'Token Distribution';
+                    plotDiv.appendChild(img);
+
+
+                    // 插入 Zipf 分布圖到左側區域
+                    var plotDiv = document.getElementById('right-zipf-plot');
+                    plotDiv.innerHTML = "";  // 清空之前的內容
+
+                    // 動態加載 Zipf 圖片到這個區域
+                    var img2 = document.createElement('img');
+                    img2.src = response.zipf_plot_url;  // 使用返回的圖像 URL
+                    img2.alt = 'Zipf Distribution';
+                    plotDiv.appendChild(img2);
+                }
+            } else {
+                var response = JSON.parse(xhr.responseText);
+                document.getElementById('right-result').innerHTML = "<p style='color: red;'>" + response.error + "</p>";
+            }
+        };
+        xhr.send(formData);
+    }
+
+    // 當復選框變化時，重新上傳文件並應用 Porter 演算法
+    document.getElementById('use_porter_right').addEventListener('change', function () {
+        var fileInput = document.getElementById('file_right');
+
+        if (fileInput.files.length === 0) {
+            return;
+        }
+
+        // 文件存在，調用上傳函數
+        uploadRightFile();
+    });
+
+
+</script>
+{% endblock %}
